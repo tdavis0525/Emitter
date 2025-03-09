@@ -1,0 +1,150 @@
+import Foundation
+
+// Protocol for defining actions
+protocol Action {
+    var hashValue: Int { get } // For versioning and signature
+    func execute(currentState: State, parameters: [String: Any]) throws -> State
+    func nextState(currentState: State) -> State
+}
+
+// Protocol for defining states
+protocol State: Codable {
+    var name: String { get }
+    var data: [String: Any]? { get }
+}
+
+// Example implementation of a state
+struct ConcreteState: State {
+    let name: String
+    let data: [String: Any]? = nil
+}
+
+// Example concrete states with data
+struct ConnectingState: State {
+    let name: String = "Connecting"
+    let data: [String: Any]?
+}
+
+struct ConnectedState: State {
+    let name: String = "Connected"
+    let data: [String: Any]?
+}
+
+struct PausedState: State {
+    let name: String = "Paused"
+    let data: [String: Any]?
+}
+
+// Example concrete actions
+struct AcknowledgeAction: Action {
+    let hashValue: Int = 1
+
+    func execute(currentState: State, parameters: [String: Any]) throws -> State {
+        print("Executing AcknowledgeAction on \(currentState.name) with parameters: \(parameters)")
+        // Perform acknowledge action logic
+        return nextState(currentState: currentState)
+    }
+
+    func nextState(currentState: State) -> State {
+        // Determine the next state based on the current state and action
+        print("Transitioning from \(currentState.name) to NextState")
+        return ConcreteState(name: "NextState")
+    }
+}
+
+struct PauseAction: Action {
+    let hashValue: Int = 2
+
+    func execute(currentState: State, parameters: [String: Any]) throws -> State {
+        print("Executing PauseAction on \(currentState.name) with parameters: \(parameters)")
+        // Perform pause action logic
+        return nextState(currentState: currentState)
+    }
+
+    func nextState(currentState: State) -> State {
+        // Determine the next state based on the current state and action
+        print("Transitioning from \(currentState.name) to PausedState")
+        return PausedState(data: ["reason": "User request"])
+    }
+}
+
+struct ResumeAction: Action {
+    let hashValue: Int = 3
+
+    func execute(currentState: State, parameters: [String: Any]) throws -> State {
+        print("Executing ResumeAction on \(currentState.name) with parameters: \(parameters)")
+        // Perform resume action logic
+        return nextState(currentState: currentState)
+    }
+
+    func nextState(currentState: State) -> State {
+        // Determine the next state based on the current state and action
+        print("Transitioning from \(currentState.name) to NextState")
+        return ConcreteState(name: "NextState")
+    }
+}
+
+struct RetransmitAction: Action {
+    let hashValue: Int = 4
+
+    func execute(currentState: State, parameters: [String: Any]) throws -> State {
+        print("Executing RetransmitAction on \(currentState.name) with parameters: \(parameters)")
+        // Perform retransmit action logic
+        return nextState(currentState: currentState)
+    }
+
+    func nextState(currentState: State) -> State {
+        // Determine the next state based on the current state and action
+        print("Transitioning from \(currentState.name) to NextState")
+        return ConcreteState(name: "NextState")
+    }
+}
+
+// Error state
+struct ErrorState: State {
+    let name: String = "Error"
+    let error: Error // Store the error that caused the transition
+    let data: [String: Any]? = nil
+}
+
+// Observer class
+class Observer {
+    private var currentState: State
+    private var actions: [Action]
+    private let queue = DispatchQueue(label: "observer.queue")
+
+    init(initialState: State, actions: [Action]) {
+        self.currentState = initialState
+        self.actions = actions
+    }
+
+    func performAction(action: Action, parameters: [String: Any] = [:]) {
+        queue.sync {
+            do {
+                currentState = try action.execute(currentState: currentState, parameters: parameters)
+            } catch {
+                handleError(error)
+            }
+        }
+    }
+
+    func getNextState(action: Action) -> State {
+        return action.nextState(currentState: currentState)
+    }
+
+    private func handleError(_ error: Error) {
+        currentState = ErrorState(error: error)
+        print("Error encountered: \(error.localizedDescription)")
+        // Perform additional error handling, such as logging, reporting, or recovery
+        if case ObserverError.connectionLostError = error {
+            // Attempt to reconnect
+            print("Attempting to reconnect...")
+            // Add reconnection logic here
+        }
+    }
+
+    func log(_ message: String) {
+        print("Observer Log: \(message)")
+        // You can add more sophisticated logging here, like writing to a file or using a logging framework
+    }
+}
